@@ -130,10 +130,12 @@ function App() {
       stopTimer();
     };
 
-    const handleGameEnded = () => {
-      setPhase('lobby');
+    const handleGameEnded = data => {
+      if (data?.rankings) {
+        setRankings(data.rankings);
+      }
+      setPhase('finished');
       setCurrentQuestion(null);
-      setRankings([]);
       stopTimer();
     };
 
@@ -361,6 +363,17 @@ function App() {
     return [];
   }, [serverGameState]);
 
+  const topRankings = useMemo(() => rankings.slice(0, 10), [rankings]);
+
+  const playerRank = useMemo(() => {
+    if (!playerName) return null;
+    const index = rankings.findIndex(
+      player => (player.name || player.playerName || '').toLowerCase() === playerName.toLowerCase()
+    );
+    if (index === -1) return null;
+    return index + 1;
+  }, [rankings, playerName]);
+
   return (
     <>
       <div id="home-screen" className={`screen ${screen === 'home' ? 'active' : ''}`}>
@@ -487,10 +500,11 @@ function App() {
 
           {phase !== 'question' && (
             <div id="leaderboard-display" className="leaderboard-display">
-              <h3>{phase === 'results' ? 'Results' : 'Leaderboard'}</h3>
+              <h3>{phase === 'finished' ? 'Final Rankings' : 'Results'}</h3>
+              {phase === 'finished' && <div className="players-connected">Final ranking is:</div>}
               <div id="leaderboard-list">
-                {rankings.length === 0 && <div className="leaderboard-item">Waiting...</div>}
-                {rankings.map((player, index) => (
+                {topRankings.length === 0 && <div className="leaderboard-item">Waiting...</div>}
+                {topRankings.map((player, index) => (
                   <div className="leaderboard-item" key={`${player.name}-${index}`}>
                     <div className="leaderboard-rank">#{index + 1}</div>
                     <div className="leaderboard-name">{player.name}</div>
@@ -586,15 +600,19 @@ function App() {
                 id="result-text"
                 style={{ color: answerFeedback?.isCorrect ? '#38ef7d' : '#667eea' }}
               >
-                {answerFeedback?.isCorrect ? 'Correct!' : 'Leaderboard'}
+                {phase === 'finished' ? 'Final Rankings' : answerFeedback?.isCorrect ? 'Correct!' : 'Leaderboard'}
               </div>
               <div className="result-points" id="result-points">
                 {answerFeedback?.isCorrect
                   ? `+${answerFeedback.pointsEarned} points`
                   : 'Waiting for next question'}
               </div>
+              {playerRank && (
+                <div className="players-connected">Your rank: #{playerRank}</div>
+              )}
+              {phase === 'finished' && <div className="players-connected">Final ranking is:</div>}
               <div id="leaderboard-list">
-                {rankings.map((player, index) => (
+                {topRankings.map((player, index) => (
                   <div className="leaderboard-item" key={`${player.name}-${index}`}>
                     <div className="leaderboard-rank">#{index + 1}</div>
                     <div className="leaderboard-name">{player.name}</div>
