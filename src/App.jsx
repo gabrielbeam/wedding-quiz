@@ -12,7 +12,7 @@ import {
 const ANSWER_COLORS = ['answer-option-1', 'answer-option-2', 'answer-option-3', 'answer-option-4'];
 const ANSWER_EMOJIS = ['🔴', '🔵', '🟢', '🟡'];
 const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || 'https://wedding-quiz-backend-production.up.railway.app';
 
 function App() {
   const [screen, setScreen] = useState('home');
