@@ -50,8 +50,6 @@ function App() {
     if (tokenFromUrl) {
       setSessionToken(tokenFromUrl);
       setScreen('join');
-    } else if (urlParams.get('join')) {
-      setScreen('join');
     }
   }, []);
 
@@ -190,7 +188,7 @@ function App() {
 
   useEffect(() => {
     if (!socketRef.current) return;
-    if (screen === 'host' || screen === 'hostGame' || screen === 'join' || screen === 'playerGame') {
+    if (screen === 'host' || screen === 'hostGame') {
       connectSocket();
     }
   }, [screen, sessionToken]);
