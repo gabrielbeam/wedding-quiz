@@ -1,124 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>Quiz Game - Mobile</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <!-- Home Screen -->
-    <div id="home-screen" class="screen active">
-        <div class="container">
-            <h1 class="logo">🎮 Quiz Game</h1>
-            <div class="button-group">
-                <button class="btn btn-primary btn-large" onclick="showHostScreen()">
-                    🎯 Host Game
-                </button>
-                <button class="btn btn-secondary btn-large" onclick="showJoinScreen()">
-                    📱 Join Game
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Host Screen -->
-    <div id="host-screen" class="screen">
-        <div class="container">
-            <h2>Host Game</h2>
-            <div class="game-pin-display">
-                <div class="pin-label">Game PIN</div>
-                <div id="game-pin" class="pin-value">----</div>
-                <button class="btn btn-small" onclick="generateGamePin()">Generate PIN</button>
-            </div>
-            
-            <div class="quiz-setup">
-                <h3>Create Quiz</h3>
-                <div id="quiz-questions"></div>
-                <button class="btn btn-primary" onclick="addQuestion()">+ Add Question</button>
-                <button class="btn btn-success btn-large" onclick="startGame()" id="start-btn" disabled>Start Game</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Host Game View -->
-    <div id="host-game-screen" class="screen">
-        <div class="container">
-            <div class="game-header">
-                <div class="game-info">
-                    <div>PIN: <span id="display-pin"></span></div>
-                    <div>Players: <span id="player-count">0</span></div>
-                </div>
-            </div>
-            
-            <div id="question-display" class="question-display">
-                <div class="question-number">Question <span id="current-q-num">1</span> of <span id="total-questions">0</span></div>
-                <div class="timer-circle">
-                    <svg class="timer-svg" viewBox="0 0 100 100">
-                        <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
-                        <circle class="timer-progress" cx="50" cy="50" r="45"></circle>
-                    </svg>
-                    <div class="timer-text" id="timer-text">30</div>
-                </div>
-                <h2 id="question-text" class="question-text">Question will appear here</h2>
-                <div id="answer-options" class="answer-options"></div>
-            </div>
-            
-            <div id="leaderboard-display" class="leaderboard-display" style="display: none;">
-                <h3>Leaderboard</h3>
-                <div id="leaderboard-list"></div>
-                <button class="btn btn-primary" onclick="nextQuestion()" id="next-btn" style="display: none;">Next Question</button>
-                <button class="btn btn-success" onclick="endGame()" id="end-btn" style="display: none;">End Game</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Join Screen -->
-    <div id="join-screen" class="screen">
-        <div class="container">
-            <h2>Join Game</h2>
-            <div class="input-group">
-                <input type="text" id="join-pin" placeholder="Enter Game PIN" maxlength="6" pattern="[0-9]*" inputmode="numeric">
-                <input type="text" id="player-name" placeholder="Enter Your Name" maxlength="20">
-                <button class="btn btn-primary btn-large" onclick="joinGame()">Join</button>
-            </div>
-            <div id="join-error" class="error-message"></div>
-        </div>
-    </div>
-
-    <!-- Player Game Screen -->
-    <div id="player-game-screen" class="screen">
-        <div class="container">
-            <div class="player-header">
-                <div class="player-name-display" id="player-name-display"></div>
-                <div class="player-score">Score: <span id="player-score">0</span></div>
-            </div>
-            
-            <div id="waiting-screen" class="waiting-screen">
-                <div class="waiting-icon">⏳</div>
-                <h3>Waiting for question...</h3>
-                <div class="players-connected">Players connected: <span id="connected-players">0</span></div>
-            </div>
-            
-            <div id="question-screen" class="question-screen" style="display: none;">
-                <div class="question-number-small">Question <span id="player-q-num">1</span></div>
-                <div class="timer-bar">
-                    <div class="timer-fill" id="timer-fill"></div>
-                </div>
-                <h2 id="player-question-text" class="question-text">Question</h2>
-                <div id="player-answer-options" class="answer-options-player"></div>
-            </div>
-            
-            <div id="answer-result" class="answer-result" style="display: none;">
-                <div class="result-icon" id="result-icon"></div>
-                <div class="result-text" id="result-text"></div>
-                <div class="result-points" id="result-points"></div>
-            </div>
-        </div>
-    </div>
-
-    <script src="app.js"></script>
-</body>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

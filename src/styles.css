@@ -110,6 +110,15 @@ body {
     box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 }
 
+.qr-canvas {
+    display: block;
+    margin: 20px auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
 .pin-label {
     font-size: 0.9rem;
     color: #666;
@@ -541,15 +550,15 @@ body {
         font-size: 2.5rem;
         margin: 40px 0 30px;
     }
-    
+
     .question-text {
         font-size: 1.5rem;
     }
-    
+
     .answer-options {
         grid-template-columns: 1fr;
     }
-    
+
     .answer-option {
         font-size: 1.1rem;
         padding: 20px;
