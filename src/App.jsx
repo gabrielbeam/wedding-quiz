@@ -1,184 +1,229 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import { io } from 'socket.io-client';
+import {
+  verifyHostPassword as verifyHostPasswordApi,
+  startQuiz,
+  resetGame,
+  endGame,
+  fetchGameState
+} from './api.js';
 
-const HOST_PASSWORD = '280226';
 const ANSWER_COLORS = ['answer-option-1', 'answer-option-2', 'answer-option-3', 'answer-option-4'];
 const ANSWER_EMOJIS = ['🔴', '🔵', '🟢', '🟡'];
-
-const initialGameState = {
-  pin: null,
-  questions: [],
-  currentQuestion: 0,
-  players: {},
-  isHost: false,
-  playerName: null,
-  playerId: null,
-  playerScore: 0
-};
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 function App() {
   const [screen, setScreen] = useState('home');
-  const [gameState, setGameState] = useState(initialGameState);
+  const [serverGameState, setServerGameState] = useState(null);
+  const [isHost, setIsHost] = useState(false);
 
   const [hostPassword, setHostPassword] = useState('');
   const [hostAuthError, setHostAuthError] = useState('');
+  const [hostAuthLoading, setHostAuthLoading] = useState(false);
 
-  const [pinInput, setPinInput] = useState('');
   const [playerNameInput, setPlayerNameInput] = useState('');
   const [joinError, setJoinError] = useState('');
+  const [playerName, setPlayerName] = useState('');
+  const [sessionToken, setSessionToken] = useState('');
+  const [playerCount, setPlayerCount] = useState(0);
+  const [socketConnected, setSocketConnected] = useState(false);
 
-  const [timeLeft, setTimeLeft] = useState(30);
-  const [questionEnded, setQuestionEnded] = useState(false);
-  const [showNext, setShowNext] = useState(false);
-  const [showEnd, setShowEnd] = useState(false);
-  const [leaderboardVisible, setLeaderboardVisible] = useState(false);
-
-  const [playerView, setPlayerView] = useState('waiting');
-  const [playerQuestion, setPlayerQuestion] = useState(null);
-  const [playerQuestionNum, setPlayerQuestionNum] = useState(1);
-  const [playerTotalQuestions, setPlayerTotalQuestions] = useState(0);
-  const [playerTimeLeft, setPlayerTimeLeft] = useState(30);
-  const [playerResult, setPlayerResult] = useState({ isCorrect: false, points: 0 });
+  const [phase, setPhase] = useState('lobby');
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [phaseDuration, setPhaseDuration] = useState(0);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [rankings, setRankings] = useState([]);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [connectedPlayers, setConnectedPlayers] = useState(0);
+  const [answerFeedback, setAnswerFeedback] = useState(null);
+  const [hasSubmittedAnswer, setHasSubmittedAnswer] = useState(false);
 
-  const hostTimerRef = useRef(null);
-  const hostNextTimeoutRef = useRef(null);
-  const playerTimerRef = useRef(null);
-  const playerViewTimeoutRef = useRef(null);
-  const gameStateRef = useRef(gameState);
+  const timerRef = useRef(null);
+  const socketRef = useRef(null);
   const qrCanvasRef = useRef(null);
-  const lastQuestionIdRef = useRef(null);
-
-  useEffect(() => {
-    gameStateRef.current = gameState;
-  }, [gameState]);
+  const endGameRequestedRef = useRef(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const pinFromUrl = urlParams.get('pin');
-    if (pinFromUrl) {
+    const tokenFromUrl = urlParams.get('sessionToken');
+    if (tokenFromUrl) {
+      setSessionToken(tokenFromUrl);
       setScreen('join');
-      setPinInput(pinFromUrl);
-    }
-
-    const savedState = localStorage.getItem('hostGameState');
-    if (savedState) {
-      const state = JSON.parse(savedState);
-      if (state.pin) {
-        setGameState(prev => ({ ...prev, pin: state.pin }));
-      }
+    } else if (urlParams.get('join')) {
+      setScreen('join');
     }
   }, []);
 
   useEffect(() => {
     if (screen !== 'host') return;
-    if (!gameState.pin) {
-      generateGamePin();
-    }
-  }, [screen, gameState.pin]);
-
-  useEffect(() => {
-    if (screen !== 'host' || !gameState.pin) return;
     if (!qrCanvasRef.current) return;
 
     const baseUrl = window.location.href.split('?')[0];
-    const joinUrl = `${baseUrl}?pin=${encodeURIComponent(gameState.pin)}`;
+    const joinToken = sessionToken || serverGameState?.sessionToken;
+    const joinUrl = joinToken
+      ? `${baseUrl}?sessionToken=${encodeURIComponent(joinToken)}`
+      : `${baseUrl}?join=1`;
 
     QRCode.toCanvas(qrCanvasRef.current, joinUrl, { width: 220, margin: 1 }, error => {
       if (error) {
         console.error('QR code generation failed:', error);
       }
     });
-  }, [screen, gameState.pin]);
-
-  useEffect(() => {
-    if (screen !== 'hostGame') return;
-
-    const question = gameState.questions[gameState.currentQuestion];
-    if (!question) {
-      setLeaderboardVisible(true);
-      clearInterval(hostTimerRef.current);
-      return;
-    }
-
-    setLeaderboardVisible(false);
-    setQuestionEnded(false);
-    setShowNext(false);
-    setShowEnd(false);
-    setTimeLeft(30);
-
-    clearInterval(hostTimerRef.current);
-    hostTimerRef.current = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(hostTimerRef.current);
-  }, [screen, gameState.currentQuestion, gameState.questions]);
-
-  useEffect(() => {
-    if (screen !== 'hostGame' || leaderboardVisible) return;
-    if (timeLeft > 0 || questionEnded) return;
-    endQuestion();
-  }, [timeLeft, screen, leaderboardVisible, questionEnded]);
-
-  useEffect(() => {
-    if (screen !== 'playerGame') return;
-
-    const pollInterval = setInterval(() => {
-      const savedState = localStorage.getItem('hostGameState');
-      if (!savedState) return;
-      const state = JSON.parse(savedState);
-      if (state.pin !== gameStateRef.current.pin) return;
-
-      setConnectedPlayers(Object.keys(state.players || {}).length);
-
-      const question = state.questions && state.questions[state.currentQuestion];
-      if (question && question.id !== lastQuestionIdRef.current) {
-        lastQuestionIdRef.current = question.id;
-        setPlayerQuestion(question);
-        setPlayerQuestionNum(state.currentQuestion + 1);
-        setPlayerTotalQuestions(state.questions.length);
-        setPlayerView('question');
-        setSelectedAnswer(null);
-      }
-    }, 500);
-
-    return () => clearInterval(pollInterval);
   }, [screen]);
 
   useEffect(() => {
-    if (screen !== 'playerGame' || playerView !== 'question') return;
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
 
-    clearInterval(playerTimerRef.current);
-    setPlayerTimeLeft(30);
+    const socket = io(SOCKET_URL, {
+      autoConnect: false,
+      auth: sessionToken ? { sessionToken } : {},
+      query: sessionToken ? { sessionToken } : undefined
+    });
+    socketRef.current = socket;
 
-    playerTimerRef.current = setInterval(() => {
-      setPlayerTimeLeft(prev => prev - 1);
-    }, 1000);
+    const handleConnect = () => setSocketConnected(true);
+    const handleDisconnect = () => setSocketConnected(false);
 
-    return () => clearInterval(playerTimerRef.current);
-  }, [screen, playerView, playerQuestion]);
+    const handleGameState = data => {
+      setServerGameState(data);
+      if (typeof data.playerCount === 'number') {
+        setPlayerCount(data.playerCount);
+      } else if (data.players) {
+        setPlayerCount(Object.keys(data.players).length);
+      }
+    };
+
+    const handlePlayerListUpdate = data => {
+      if (typeof data.playerCount === 'number') {
+        setPlayerCount(data.playerCount);
+      }
+    };
+
+    const handleQuestion = data => {
+      setCurrentQuestion(data.question || null);
+      setRankings([]);
+      setAnswerFeedback(null);
+      setSelectedAnswer(null);
+      setHasSubmittedAnswer(false);
+      setPhase('question');
+      startTimer(data.timeLimit);
+    };
+
+    const handleResults = data => {
+      setRankings(data.rankings || []);
+      setPhase('results');
+      startTimer(data.timeLimit);
+    };
+
+    const handleGameFinished = data => {
+      setRankings(data.rankings || []);
+      setPhase('finished');
+      stopTimer();
+    };
+
+    const handleGameReset = () => {
+      setPhase('lobby');
+      setCurrentQuestion(null);
+      setRankings([]);
+      stopTimer();
+    };
+
+    const handleGameEnded = () => {
+      setPhase('lobby');
+      setCurrentQuestion(null);
+      setRankings([]);
+      stopTimer();
+    };
+
+    const handleRegistrationResult = data => {
+      if (data.success) {
+        setPlayerName(data.playerName || playerNameInput.trim());
+        setJoinError('');
+        setScreen('playerGame');
+      } else {
+        setJoinError(data.error || 'Unable to join the game.');
+      }
+    };
+
+    const handleAnswerResult = data => {
+      if (data.success) {
+        setAnswerFeedback({
+          isCorrect: data.isCorrect,
+          pointsEarned: data.pointsEarned,
+          timeTaken: data.timeTaken
+        });
+      } else {
+        setAnswerFeedback({ error: data.error || 'Unable to submit answer.' });
+      }
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('game-state', handleGameState);
+    socket.on('player-list-update', handlePlayerListUpdate);
+    socket.on('question', handleQuestion);
+    socket.on('results', handleResults);
+    socket.on('game-finished', handleGameFinished);
+    socket.on('game-reset', handleGameReset);
+    socket.on('game-ended', handleGameEnded);
+    socket.on('registration-result', handleRegistrationResult);
+    socket.on('answer-result', handleAnswerResult);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('game-state', handleGameState);
+      socket.off('player-list-update', handlePlayerListUpdate);
+      socket.off('question', handleQuestion);
+      socket.off('results', handleResults);
+      socket.off('game-finished', handleGameFinished);
+      socket.off('game-reset', handleGameReset);
+      socket.off('game-ended', handleGameEnded);
+      socket.off('registration-result', handleRegistrationResult);
+      socket.off('answer-result', handleAnswerResult);
+    };
+  }, [playerNameInput, sessionToken]);
 
   useEffect(() => {
-    if (screen !== 'playerGame' || playerView !== 'question') return;
-    if (playerTimeLeft > 0) return;
+    if (!socketRef.current) return;
+    if (screen === 'host' || screen === 'hostGame' || screen === 'join' || screen === 'playerGame') {
+      connectSocket();
+    }
+  }, [screen, sessionToken]);
 
-    clearInterval(playerTimerRef.current);
-    showAnswerResult(false, 0);
-  }, [playerTimeLeft, screen, playerView]);
+  function connectSocket() {
+    if (!socketRef.current) return;
+    if (!socketRef.current.connected) {
+      socketRef.current.connect();
+    }
+  }
 
-  function saveHostGameState(state) {
-    if (!state.isHost) return;
-    localStorage.setItem(
-      'hostGameState',
-      JSON.stringify({
-        pin: state.pin,
-        questions: state.questions,
-        currentQuestion: state.currentQuestion,
-        players: state.players
-      })
-    );
+  function startTimer(duration) {
+    const seconds = normalizeSeconds(duration);
+    setTimeLeft(seconds);
+    setPhaseDuration(seconds);
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => Math.max(prev - 1, 0));
+    }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerRef.current);
+    setTimeLeft(0);
+    setPhaseDuration(0);
+  }
+
+  function normalizeSeconds(duration) {
+    if (!duration) return 0;
+    if (duration > 1000) {
+      return Math.ceil(duration / 1000);
+    }
+    return Math.ceil(duration);
   }
 
   function showHostAuthScreen() {
@@ -187,238 +232,136 @@ function App() {
     setScreen('hostAuth');
   }
 
-  function verifyHostPassword() {
-    if (hostPassword.trim() !== HOST_PASSWORD) {
-      setHostAuthError('Incorrect password');
+  async function verifyHostPassword() {
+    const password = hostPassword.trim();
+    if (!password) {
+      setHostAuthError('Please enter the password.');
       return;
     }
+
     setHostAuthError('');
-    setScreen('host');
-  }
+    setHostAuthLoading(true);
 
-  function generateGamePin() {
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    setGameState(prev => {
-      const next = { ...prev, pin };
-      return next;
-    });
-  }
-
-  function addQuestion() {
-    const questionId = Date.now();
-    const question = {
-      id: questionId,
-      text: '',
-      answers: ['', '', '', ''],
-      correctAnswer: 0
-    };
-    setGameState(prev => ({ ...prev, questions: [...prev.questions, question] }));
-  }
-
-  function deleteQuestion(questionId) {
-    setGameState(prev => ({
-      ...prev,
-      questions: prev.questions.filter(q => q.id !== questionId)
-    }));
-  }
-
-  function updateQuestion(questionId, field, value) {
-    setGameState(prev => ({
-      ...prev,
-      questions: prev.questions.map(question => {
-        if (question.id !== questionId) return question;
-        if (field === 'text') {
-          return { ...question, text: value };
-        }
-        if (field.startsWith('answer')) {
-          const index = Number(field.split('-')[1]);
-          const answers = [...question.answers];
-          answers[index] = value;
-          return { ...question, answers };
-        }
-        if (field === 'correct') {
-          return { ...question, correctAnswer: Number(value) };
-        }
-        return question;
-      })
-    }));
-  }
-
-  const canStart = useMemo(() => {
-    if (!gameState.questions.length) return false;
-    return gameState.questions.every(
-      q => q.text.trim() && q.answers.every(a => a.trim()) && q.correctAnswer !== null
-    );
-  }, [gameState.questions]);
-
-  function startGame() {
-    if (!gameState.questions.length) {
-      window.alert('Please add at least one question!');
-      return;
-    }
-
-    setGameState(prev => {
-      const next = {
-        ...prev,
-        isHost: true,
-        currentQuestion: 0,
-        players: {}
-      };
-      saveHostGameState(next);
-      return next;
-    });
-
-    setScreen('hostGame');
-    setLeaderboardVisible(false);
-    setQuestionEnded(false);
-    setShowNext(false);
-    setShowEnd(false);
-
-    simulatePlayers();
-  }
-
-  function calculateScores() {
-    setGameState(prev => {
-      const players = { ...prev.players };
-      Object.keys(players).forEach(playerId => {
-        if (Math.random() > 0.3) {
-          const points = Math.floor(1000 + Math.random() * 2000);
-          players[playerId] = { ...players[playerId], score: players[playerId].score + points };
-        }
-      });
-
-      const next = { ...prev, players };
-      saveHostGameState(next);
-      return next;
-    });
-  }
-
-  function endQuestion() {
-    clearInterval(hostTimerRef.current);
-    setQuestionEnded(true);
-    calculateScores();
-
-    clearTimeout(hostNextTimeoutRef.current);
-    hostNextTimeoutRef.current = setTimeout(() => {
-      setShowNext(true);
-      if (gameStateRef.current.currentQuestion === gameStateRef.current.questions.length - 1) {
-        setShowEnd(true);
+    try {
+      const result = await verifyHostPasswordApi(password);
+      if (!result.ok) {
+        setHostAuthError('Incorrect password');
+        return;
       }
-    }, 2000);
+
+      if (result.sessionToken) {
+        setSessionToken(result.sessionToken);
+      }
+
+      setIsHost(true);
+      setScreen('host');
+      await fetchGameState().catch(() => {});
+    } catch (error) {
+      setHostAuthError(error.message || 'Unable to verify password. Try again.');
+    } finally {
+      setHostAuthLoading(false);
+    }
   }
 
-  function nextQuestion() {
-    setGameState(prev => ({ ...prev, currentQuestion: prev.currentQuestion + 1 }));
-    setQuestionEnded(false);
-    setShowNext(false);
-    setShowEnd(false);
+  async function handleStartGame() {
+    setHostAuthError('');
+    try {
+      await startQuiz(hostPassword.trim());
+      setScreen('hostGame');
+      setPhase('question');
+    } catch (error) {
+      setHostAuthError(error.message || 'Unable to start the game.');
+    }
   }
 
-  function endGame() {
-    setLeaderboardVisible(true);
-    setShowNext(false);
-    setShowEnd(false);
+  async function handleResetGame() {
+    setHostAuthError('');
+    try {
+      await resetGame(hostPassword.trim());
+    } catch (error) {
+      setHostAuthError(error.message || 'Unable to reset the game.');
+    }
   }
+
+  async function handleEndGame() {
+    setHostAuthError('');
+    try {
+      await endGame(hostPassword.trim());
+    } catch (error) {
+      setHostAuthError(error.message || 'Unable to end the game.');
+    }
+  }
+
+  useEffect(() => {
+    if (!isHost) return;
+    if (screen !== 'hostGame') return;
+    if (phase !== 'finished') return;
+    if (!currentQuestion?.isLast) return;
+    if (endGameRequestedRef.current) return;
+
+    endGameRequestedRef.current = true;
+    handleEndGame();
+  }, [isHost, screen, phase, currentQuestion]);
 
   function joinGame() {
-    const pin = pinInput.trim();
     const name = playerNameInput.trim();
-
-    if (!pin || pin.length !== 6) {
-      setJoinError('Please enter a valid 6-digit PIN');
-      return;
-    }
-
     if (!name) {
       setJoinError('Please enter your name');
       return;
     }
-
-    const savedState = localStorage.getItem('hostGameState');
-    if (!savedState) {
-      setJoinError('Game not found. Please check the PIN.');
+    if (!sessionToken) {
+      setJoinError('Invalid QR code or missing session token.');
       return;
     }
 
-    const state = JSON.parse(savedState);
-    if (state.pin !== pin) {
-      setJoinError('Invalid PIN. Please check and try again.');
-      return;
+    setJoinError('');
+    connectSocket();
+    const emitRegistration = () =>
+      socketRef.current.emit('register-player', { playerName: name, sessionToken });
+    if (socketRef.current.connected) {
+      emitRegistration();
+    } else {
+      socketRef.current.once('connect', emitRegistration);
     }
-
-    const playerId = Date.now().toString();
-    if (!state.players) state.players = {};
-    state.players[playerId] = { name, score: 0 };
-    localStorage.setItem('hostGameState', JSON.stringify(state));
-
-    setGameState(prev => ({
-      ...prev,
-      pin,
-      playerName: name,
-      playerId,
-      isHost: false,
-      playerScore: 0
-    }));
-
-    setPlayerView('waiting');
-    lastQuestionIdRef.current = null;
-    setScreen('playerGame');
   }
 
   function selectAnswer(selectedIndex) {
-    clearInterval(playerTimerRef.current);
-
-    const correctIndex = playerQuestion.correctAnswer;
-    const isCorrect = selectedIndex === correctIndex;
-    const points = isCorrect ? Math.floor(1000 + Math.random() * 2000) : 0;
-
-    if (isCorrect) {
-      setGameState(prev => ({ ...prev, playerScore: prev.playerScore + points }));
-    }
-
+    if (!currentQuestion) return;
+    if (hasSubmittedAnswer) return;
+    const answerLetter = ['A', 'B', 'C', 'D'][selectedIndex];
     setSelectedAnswer(selectedIndex);
-
-    clearTimeout(playerViewTimeoutRef.current);
-    playerViewTimeoutRef.current = setTimeout(() => {
-      showAnswerResult(isCorrect, points);
-    }, 500);
+    setHasSubmittedAnswer(true);
+    socketRef.current.emit('submit-answer', { answer: answerLetter });
   }
 
-  function showAnswerResult(isCorrect, points) {
-    setPlayerResult({ isCorrect, points });
-    setPlayerView('result');
-
-    clearTimeout(playerViewTimeoutRef.current);
-    playerViewTimeoutRef.current = setTimeout(() => {
-      setPlayerView('waiting');
-    }, 3000);
-  }
-
-  function simulatePlayers() {
-    setTimeout(() => {
-      if (Math.random() > 0.5) {
-        setGameState(prev => {
-          const playerId = `demo-${Date.now()}`;
-          const players = {
-            ...prev.players,
-            [playerId]: {
-              name: `Demo Player ${Object.keys(prev.players).length}`,
-              score: 0
-            }
-          };
-          const next = { ...prev, players };
-          saveHostGameState(next);
-          return next;
-        });
-      }
-    }, 2000);
-  }
-
-  const currentQuestion = gameState.questions[gameState.currentQuestion];
-  const playerTimerWidth = `${(playerTimeLeft / 30) * 100}%`;
+  const questionText = currentQuestion?.question || currentQuestion?.text || '';
+  const questionAnswers = useMemo(() => {
+    if (!currentQuestion) return [];
+    if (Array.isArray(currentQuestion.answers)) {
+      return currentQuestion.answers;
+    }
+    if (currentQuestion.options && typeof currentQuestion.options === 'object') {
+      return ['A', 'B', 'C', 'D'].map(key => currentQuestion.options[key] || '');
+    }
+    return [];
+  }, [currentQuestion]);
+  const timerBase = phaseDuration || 30;
+  const playerTimerWidth = `${(timeLeft / timerBase) * 100}%`;
   const circumference = 2 * Math.PI * 45;
-  const progress = (30 - timeLeft) / 30;
+  const progress = timerBase > 0 ? (timerBase - timeLeft) / timerBase : 0;
   const strokeDashoffset = circumference * (1 - Math.max(0, progress));
+  const playerNames = useMemo(() => {
+    const players = serverGameState?.players;
+    if (Array.isArray(players)) {
+      return players.map(player => player.name || player.playerName).filter(Boolean);
+    }
+    if (players && typeof players === 'object') {
+      return Object.values(players)
+        .map(player => player.name || player.playerName)
+        .filter(Boolean);
+    }
+    return [];
+  }, [serverGameState]);
 
   return (
     <>
@@ -446,8 +389,12 @@ function App() {
               pattern="[0-9]*"
               inputMode="numeric"
             />
-            <button className="btn btn-primary btn-large" onClick={verifyHostPassword}>
-              Continue
+            <button
+              className="btn btn-primary btn-large"
+              onClick={verifyHostPassword}
+              disabled={hostAuthLoading}
+            >
+              {hostAuthLoading ? 'Checking...' : 'Continue'}
             </button>
           </div>
           <div className="error-message">{hostAuthError}</div>
@@ -460,63 +407,34 @@ function App() {
           <div className="game-pin-display">
             <div className="pin-label">Scan to Join</div>
             <canvas ref={qrCanvasRef} className="qr-canvas" width="220" height="220"></canvas>
-            <div className="pin-label">Or enter PIN</div>
-            <div id="game-pin" className="pin-value">
-              {gameState.pin || '----'}
-            </div>
-            <button className="btn btn-small" onClick={generateGamePin}>
-              Generate PIN
-            </button>
           </div>
 
           <div className="quiz-setup">
-            <h3>Create Quiz</h3>
-            <div id="quiz-questions">
-              {gameState.questions.map((question, index) => (
-                <div className="question-item" key={question.id}>
-                  <h4>Question {index + 1}</h4>
-                  <textarea
-                    placeholder="Enter question text"
-                    value={question.text}
-                    onChange={event => updateQuestion(question.id, 'text', event.target.value)}
-                  ></textarea>
-                  {[0, 1, 2, 3].map(i => (
-                    <div className="answer-option-input" key={i}>
-                      <input
-                        type="radio"
-                        name={`correct-${question.id}`}
-                        value={i}
-                        checked={question.correctAnswer === i}
-                        onChange={event =>
-                          updateQuestion(question.id, 'correct', event.target.value)
-                        }
-                      />
-                      <input
-                        type="text"
-                        placeholder={`Answer ${i + 1}`}
-                        value={question.answers[i]}
-                        onChange={event =>
-                          updateQuestion(question.id, `answer-${i}`, event.target.value)
-                        }
-                      />
+            <h3>Players Waiting</h3>
+            <div className="leaderboard-display">
+              <div className="leaderboard-item">
+                <div className="leaderboard-name">Connected Players</div>
+                <div className="leaderboard-score">{playerCount}</div>
+              </div>
+              {playerNames.length > 0 && (
+                <div id="leaderboard-list">
+                  {playerNames.map((name, index) => (
+                    <div className="leaderboard-item" key={`${name}-${index}`}>
+                      <div className="leaderboard-rank">#{index + 1}</div>
+                      <div className="leaderboard-name">{name}</div>
+                      <div className="leaderboard-score">Ready</div>
                     </div>
                   ))}
-                  <button className="delete-btn" onClick={() => deleteQuestion(question.id)}>
-                    Delete
-                  </button>
                 </div>
-              ))}
+              )}
             </div>
-            <button className="btn btn-primary" onClick={addQuestion}>
-              + Add Question
-            </button>
-            <button
-              className="btn btn-success btn-large"
-              onClick={startGame}
-              disabled={!canStart}
-            >
+            <button className="btn btn-success btn-large" onClick={handleStartGame}>
               Start Game
             </button>
+            <button className="btn btn-secondary btn-small" onClick={handleResetGame}>
+              Reset Game
+            </button>
+            <div className="error-message">{hostAuthError}</div>
           </div>
         </div>
       </div>
@@ -526,20 +444,15 @@ function App() {
           <div className="game-header">
             <div className="game-info">
               <div>
-                PIN: <span id="display-pin">{gameState.pin || ''}</span>
+                Players: <span id="player-count">{playerCount}</span>
               </div>
-              <div>
-                Players: <span id="player-count">{Object.keys(gameState.players).length}</span>
-              </div>
+              <div>{socketConnected ? 'Live' : 'Connecting...'}</div>
             </div>
           </div>
 
-          {!leaderboardVisible && currentQuestion && (
+          {phase === 'question' && currentQuestion && (
             <div id="question-display" className="question-display">
-              <div className="question-number">
-                Question <span id="current-q-num">{gameState.currentQuestion + 1}</span> of{' '}
-                <span id="total-questions">{gameState.questions.length}</span>
-              </div>
+              <div className="question-number">Question in progress</div>
               <div className="timer-circle">
                 <svg className="timer-svg" viewBox="0 0 100 100">
                   <circle className="timer-bg" cx="50" cy="50" r="45"></circle>
@@ -555,18 +468,15 @@ function App() {
                   ></circle>
                 </svg>
                 <div className="timer-text" id="timer-text">
-                  {Math.max(0, timeLeft)}
+                  {timeLeft}
                 </div>
               </div>
               <h2 id="question-text" className="question-text">
-                {currentQuestion.text}
+                {questionText}
               </h2>
               <div id="answer-options" className="answer-options">
-                {currentQuestion.answers.map((answer, index) => {
-                  let optionClass = `answer-option ${ANSWER_COLORS[index]}`;
-                  if (questionEnded) {
-                    optionClass += index === currentQuestion.correctAnswer ? ' correct' : ' wrong';
-                  }
+                {questionAnswers.map((answer, index) => {
+                  const optionClass = `answer-option ${ANSWER_COLORS[index]}`;
                   return (
                     <div className={optionClass} key={index}>
                       {ANSWER_EMOJIS[index]} {answer}
@@ -577,31 +487,19 @@ function App() {
             </div>
           )}
 
-          {(leaderboardVisible || !currentQuestion) && (
+          {phase !== 'question' && (
             <div id="leaderboard-display" className="leaderboard-display">
-              <h3>Leaderboard</h3>
+              <h3>{phase === 'results' ? 'Results' : 'Leaderboard'}</h3>
               <div id="leaderboard-list">
-                {Object.values(gameState.players)
-                  .sort((a, b) => b.score - a.score)
-                  .slice(0, 10)
-                  .map((player, index) => (
-                    <div className="leaderboard-item" key={`${player.name}-${index}`}>
-                      <div className="leaderboard-rank">#{index + 1}</div>
-                      <div className="leaderboard-name">{player.name}</div>
-                      <div className="leaderboard-score">{player.score}</div>
-                    </div>
-                  ))}
+                {rankings.length === 0 && <div className="leaderboard-item">Waiting...</div>}
+                {rankings.map((player, index) => (
+                  <div className="leaderboard-item" key={`${player.name}-${index}`}>
+                    <div className="leaderboard-rank">#{index + 1}</div>
+                    <div className="leaderboard-name">{player.name}</div>
+                    <div className="leaderboard-score">{player.score}</div>
+                  </div>
+                ))}
               </div>
-              {showNext && (
-                <button className="btn btn-primary" onClick={nextQuestion} id="next-btn">
-                  Next Question
-                </button>
-              )}
-              {showEnd && (
-                <button className="btn btn-success" onClick={endGame} id="end-btn">
-                  End Game
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -611,15 +509,6 @@ function App() {
         <div className="container">
           <h2>Join Game</h2>
           <div className="input-group">
-            <input
-              type="text"
-              value={pinInput}
-              onChange={event => setPinInput(event.target.value)}
-              placeholder="Enter Game PIN"
-              maxLength={6}
-              pattern="[0-9]*"
-              inputMode="numeric"
-            />
             <input
               type="text"
               value={playerNameInput}
@@ -639,37 +528,34 @@ function App() {
         <div className="container">
           <div className="player-header">
             <div className="player-name-display" id="player-name-display">
-              {gameState.playerName || ''}
+              {playerName || 'Player'}
             </div>
-            <div className="player-score">
-              Score: <span id="player-score">{gameState.playerScore}</span>
-            </div>
+            <div className="player-score">{socketConnected ? 'Live' : 'Connecting...'}</div>
           </div>
 
-          {playerView === 'waiting' && (
+          {phase === 'lobby' && (
             <div id="waiting-screen" className="waiting-screen">
               <div className="waiting-icon">⏳</div>
-              <h3>Waiting for question...</h3>
+              <h3>Waiting for game to start...</h3>
               <div className="players-connected">
-                Players connected: <span id="connected-players">{connectedPlayers}</span>
+                Players connected: <span id="connected-players">{playerCount}</span>
               </div>
             </div>
           )}
 
-          {playerView === 'question' && playerQuestion && (
+          {phase === 'question' && currentQuestion && (
             <div id="question-screen" className="question-screen">
               <div className="question-number-small">
-                Question <span id="player-q-num">{playerQuestionNum}</span> of{' '}
-                <span>{playerTotalQuestions}</span>
+                Time left: <span id="player-q-num">{timeLeft}</span>s
               </div>
               <div className="timer-bar">
                 <div className="timer-fill" id="timer-fill" style={{ width: playerTimerWidth }}></div>
               </div>
               <h2 id="player-question-text" className="question-text">
-                {playerQuestion.text}
+                {questionText}
               </h2>
               <div id="player-answer-options" className="answer-options-player">
-                {playerQuestion.answers.map((answer, index) => {
+                {questionAnswers.map((answer, index) => {
                   let optionClass = `answer-option-player ${ANSWER_COLORS[index]}`;
                   if (selectedAnswer === index) {
                     optionClass += ' selected';
@@ -685,29 +571,43 @@ function App() {
                   );
                 })}
               </div>
+              {hasSubmittedAnswer && (
+                <div className="players-connected">Answer submitted. Waiting for results...</div>
+              )}
+              {answerFeedback?.error && <div className="error-message">{answerFeedback.error}</div>}
             </div>
           )}
 
-          {playerView === 'result' && (
+          {(phase === 'results' || phase === 'finished') && (
             <div id="answer-result" className="answer-result">
               <div className="result-icon" id="result-icon">
-                {playerResult.isCorrect ? '✅' : '❌'}
+                {answerFeedback?.isCorrect ? '✅' : '🏆'}
               </div>
               <div
                 className="result-text"
                 id="result-text"
-                style={{ color: playerResult.isCorrect ? '#38ef7d' : '#dc3545' }}
+                style={{ color: answerFeedback?.isCorrect ? '#38ef7d' : '#667eea' }}
               >
-                {playerResult.isCorrect ? 'Correct!' : 'Wrong Answer'}
+                {answerFeedback?.isCorrect ? 'Correct!' : 'Leaderboard'}
               </div>
               <div className="result-points" id="result-points">
-                {playerResult.isCorrect ? `+${playerResult.points} points` : '+0 points'}
+                {answerFeedback?.isCorrect
+                  ? `+${answerFeedback.pointsEarned} points`
+                  : 'Waiting for next question'}
+              </div>
+              <div id="leaderboard-list">
+                {rankings.map((player, index) => (
+                  <div className="leaderboard-item" key={`${player.name}-${index}`}>
+                    <div className="leaderboard-rank">#{index + 1}</div>
+                    <div className="leaderboard-name">{player.name}</div>
+                    <div className="leaderboard-score">{player.score}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
         </div>
       </div>
-
     </>
   );
 }
