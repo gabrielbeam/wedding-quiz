@@ -10,7 +10,7 @@ import {
 } from './api.js';
 
 const ANSWER_COLORS = ['answer-option-1', 'answer-option-2', 'answer-option-3', 'answer-option-4'];
-const ANSWER_EMOJIS = ['🔴', '🔵', '🟢', '🟡'];
+const ANSWER_EMOJIS = ['A.', 'B.', 'C.', 'D.'];
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || 'https://wedding-quiz-backend-production.up.railway.app';
 
