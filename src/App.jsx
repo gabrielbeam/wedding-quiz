@@ -363,6 +363,12 @@ function App() {
     currentQuestion?.totalQuestionCount ||
     null;
   const questionIndex = currentQuestion?.questionNo || currentQuestion?.questionNumber || null;
+  const questionProgressLabel =
+    questionIndex && totalQuestions
+      ? questionIndex >= totalQuestions
+        ? 'Last question'
+        : `Question ${questionIndex} of ${totalQuestions}`
+      : null;
   const correctAnswerText = useMemo(() => {
     if (!correctAnswer || !currentQuestion) return null;
     if (Array.isArray(currentQuestion.answers)) {
@@ -389,7 +395,7 @@ function App() {
     return [];
   }, [serverGameState]);
 
-  const topRankings = useMemo(() => rankings.slice(0, 10), [rankings]);
+  const topRankings = useMemo(() => rankings.slice(0, 6), [rankings]);
 
   const playerRank = useMemo(() => {
     if (!playerName) return null;
@@ -490,6 +496,9 @@ function App() {
           {phase === 'question' && currentQuestion && (
             <div id="question-display" className="question-display">
               <div className="question-number">Question in progress</div>
+              {questionProgressLabel && (
+                <div className="players-connected">{questionProgressLabel}</div>
+              )}
               <div className="timer-circle">
                 <svg className="timer-svg" viewBox="0 0 100 100">
                   <circle className="timer-bg" cx="50" cy="50" r="45"></circle>
@@ -527,13 +536,11 @@ function App() {
           {phase !== 'question' && (
             <div id="leaderboard-display" className="leaderboard-display">
               <h3>{phase === 'finished' ? 'Final Rankings' : 'Results'}</h3>
-              {questionIndex && totalQuestions && (
-                <div className="players-connected">
-                  Question {questionIndex} of {totalQuestions}
-                </div>
-              )}
               {phase === 'results' && correctAnswerText && (
                 <div className="players-connected">Correct answer: {correctAnswerText}</div>
+              )}
+              {phase === 'results' && !currentQuestion?.isLast && (
+                <div className="players-connected">Next question in {timeLeft}s</div>
               )}
               {phase === 'finished' && <div className="players-connected">Final ranking is:</div>}
               <div id="leaderboard-list">
@@ -594,6 +601,9 @@ function App() {
               <div className="question-number-small">
                 Time left: <span id="player-q-num">{timeLeft}</span>s
               </div>
+              {questionProgressLabel && (
+                <div className="players-connected">{questionProgressLabel}</div>
+              )}
               <div className="timer-bar">
                 <div className="timer-fill" id="timer-fill" style={{ width: playerTimerWidth }}></div>
               </div>
@@ -645,13 +655,11 @@ function App() {
                   ? `+${answerFeedback.pointsEarned} points`
                   : 'Waiting for next question'}
               </div>
-              {questionIndex && totalQuestions && (
-                <div className="players-connected">
-                  Question {questionIndex} of {totalQuestions}
-                </div>
-              )}
               {phase === 'results' && correctAnswerText && (
                 <div className="players-connected">Correct answer: {correctAnswerText}</div>
+              )}
+              {phase === 'results' && !currentQuestion?.isLast && (
+                <div className="players-connected">Next question in {timeLeft}s</div>
               )}
               {playerRank && (
                 <div className="players-connected">Your rank: #{playerRank}</div>
