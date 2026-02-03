@@ -35,6 +35,7 @@ function App() {
   const [phaseDuration, setPhaseDuration] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [rankings, setRankings] = useState([]);
+  const [correctAnswer, setCorrectAnswer] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [answerFeedback, setAnswerFeedback] = useState(null);
   const [hasSubmittedAnswer, setHasSubmittedAnswer] = useState(false);
@@ -103,6 +104,7 @@ function App() {
 
     const handleQuestion = data => {
       setCurrentQuestion(data.question || null);
+      setCorrectAnswer(null);
       setRankings([]);
       setAnswerFeedback(null);
       setSelectedAnswer(null);
@@ -113,6 +115,7 @@ function App() {
 
     const handleResults = data => {
       setRankings(data.rankings || []);
+      setCorrectAnswer(data.correctAnswer || null);
       setPhase('results');
       startTimer(data.timeLimit);
     };
@@ -127,6 +130,7 @@ function App() {
       setPhase('lobby');
       setCurrentQuestion(null);
       setRankings([]);
+      setCorrectAnswer(null);
       stopTimer();
     };
 
@@ -136,6 +140,7 @@ function App() {
       }
       setPhase('finished');
       setCurrentQuestion(null);
+      setCorrectAnswer(null);
       stopTimer();
     };
 
