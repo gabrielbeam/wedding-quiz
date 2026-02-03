@@ -1,3 +1,26 @@
+#host-screen h2 {
+    text-align: center;
+    color: #5a3d2b;
+    font-family: 'Great Vibes', 'Times New Roman', cursive;
+    font-weight: 400;
+    font-size: 2.6rem;
+}
+
+#join-screen h2 {
+    text-align: center;
+    color: #5a3d2b;
+    font-family: 'Great Vibes', 'Times New Roman', cursive;
+    font-weight: 400;
+    font-size: 2.6rem;
+}
+
+#join-screen .btn-large {
+    font-size: 1.05rem;
+    padding: 16px 26px;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;500;600&display=swap');
+
 * {
     margin: 0;
     padding: 0;
@@ -6,8 +29,9 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: #fffaf5 url('./assets/floral-frame.jpg') no-repeat center top;
+    background-size: contain;
     min-height: 100vh;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
@@ -45,9 +69,11 @@ body {
 .logo {
     text-align: center;
     font-size: 3rem;
-    color: white;
+    color: #5a3d2b;
     margin: 60px 0 40px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    text-shadow: 0 6px 18px rgba(90,61,43,0.18);
+    font-family: 'Great Vibes', 'Times New Roman', cursive;
+    font-weight: 400;
 }
 
 .button-group {
@@ -67,8 +93,8 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    letter-spacing: 0.6px;
+    box-shadow: 0 8px 20px rgba(90,61,43,0.18);
 }
 
 .btn:active {
@@ -76,18 +102,18 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: linear-gradient(135deg, #c58b6b 0%, #e9c6b0 100%);
+    color: #3b2417;
 }
 
 .btn-secondary {
-    background: white;
-    color: #667eea;
+    background: #fff6ee;
+    color: #9c6c52;
 }
 
 .btn-success {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    color: white;
+    background: linear-gradient(135deg, #b86b77 0%, #e3a9b0 100%);
+    color: #ffffff;
 }
 
 .btn-large {
@@ -107,7 +133,8 @@ body {
     padding: 30px;
     text-align: center;
     margin: 30px 0;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 30px rgba(90,61,43,0.12);
+    border: 1px solid #f0e2d7;
 }
 
 .qr-canvas {
@@ -130,7 +157,7 @@ body {
 .pin-value {
     font-size: 3rem;
     font-weight: bold;
-    color: #667eea;
+    color: #9c6c52;
     letter-spacing: 8px;
     margin: 20px 0;
     font-family: 'Courier New', monospace;
@@ -142,7 +169,8 @@ body {
     border-radius: 16px;
     padding: 25px;
     margin-top: 20px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 30px rgba(90,61,43,0.12);
+    border: 1px solid #f0e2d7;
 }
 
 .quiz-setup h3 {
@@ -224,7 +252,8 @@ body {
 
 .input-group input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #c58b6b;
+    box-shadow: 0 0 0 3px rgba(197,139,107,0.2);
 }
 
 .error-message {
@@ -234,27 +263,72 @@ body {
     font-weight: 500;
 }
 
+/* Host Access */
+#host-auth-screen h2 {
+    text-align: center;
+    color: #5a3d2b;
+    font-family: 'Great Vibes', 'Times New Roman', cursive;
+    letter-spacing: 0.5px;
+    font-weight: 400;
+    font-size: 2.6rem;
+}
+
+#host-auth-screen .input-group {
+    max-width: 420px;
+    margin: 30px auto 0;
+    background: rgba(255, 246, 238, 0.95);
+    border: 1px solid #f0e2d7;
+    box-shadow: 0 12px 30px rgba(90,61,43,0.12);
+}
+
+#host-auth-screen .input-group input {
+    background: #ffffff;
+    border-color: #ead9cc;
+}
+
+#host-auth-screen .error-message {
+    margin-top: 10px;
+}
+
+#host-auth-screen .btn-large {
+    font-size: 1.05rem;
+    padding: 16px 26px;
+}
+
+#host-screen .btn-success + .btn-secondary {
+    margin-left: 12px;
+}
+
+#host-screen .btn-success.btn-large {
+    font-size: 1.05rem;
+    padding: 16px 26px;
+    margin-top: 12px;
+    background: linear-gradient(135deg, #d3a36f 0%, #f1d0b2 100%);
+    color: #3b2417;
+}
+
 /* Host Game View */
 .game-header {
     background: white;
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 20px rgba(90,61,43,0.12);
+    border: 1px solid #f0e2d7;
 }
 
 .game-info {
     display: flex;
     justify-content: space-between;
     font-weight: 600;
-    color: #333;
+    color: #5a3d2b;
 }
 
 .question-display {
     background: white;
     border-radius: 16px;
     padding: 30px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 30px rgba(90,61,43,0.12);
     text-align: center;
 }
 
@@ -264,6 +338,15 @@ body {
     margin-bottom: 20px;
     text-transform: uppercase;
     letter-spacing: 1px;
+}
+
+.question-number,
+.game-info,
+.players-connected {
+    font-family: 'Great Vibes', 'Times New Roman', cursive;
+    letter-spacing: 0.6px;
+    font-weight: 400;
+    font-size: 1.15rem;
 }
 
 .timer-circle {
@@ -307,10 +390,12 @@ body {
 
 .question-text {
     font-size: 1.8rem;
-    color: #333;
+    color: #5a3d2b;
     margin: 30px 0;
     line-height: 1.4;
     font-weight: 600;
+    font-family: 'Great Vibes', 'Times New Roman', cursive;
+    font-weight: 400;
 }
 
 .answer-options {
@@ -362,13 +447,16 @@ body {
     border-radius: 16px;
     padding: 30px;
     margin-top: 20px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 30px rgba(90,61,43,0.12);
 }
 
 .leaderboard-display h3 {
     text-align: center;
     margin-bottom: 20px;
-    color: #333;
+    color: #5a3d2b;
+    font-family: 'Great Vibes', 'Times New Roman', cursive;
+    font-weight: 400;
+    font-size: 2.2rem;
 }
 
 .leaderboard-item {
@@ -377,27 +465,28 @@ body {
     align-items: center;
     padding: 15px;
     margin-bottom: 10px;
-    background: #f8f9fa;
+    background: #fff6ee;
     border-radius: 10px;
     font-weight: 600;
+    border: 1px solid #f0e2d7;
 }
 
 .leaderboard-rank {
     font-size: 1.5rem;
     font-weight: bold;
-    color: #667eea;
+    color: #c58b6b;
     min-width: 40px;
 }
 
 .leaderboard-name {
     flex: 1;
     margin-left: 15px;
-    color: #333;
+    color: #5a3d2b;
 }
 
 .leaderboard-score {
     font-size: 1.2rem;
-    color: #667eea;
+    color: #9c6c52;
     font-weight: bold;
 }
 
@@ -445,8 +534,11 @@ body {
 }
 
 .waiting-screen h3 {
-    color: #666;
+    color: #5a3d2b;
     margin-bottom: 20px;
+    font-family: 'Great Vibes', 'Times New Roman', cursive;
+    font-weight: 400;
+    font-size: 2.2rem;
 }
 
 .players-connected {

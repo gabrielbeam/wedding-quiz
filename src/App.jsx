@@ -378,10 +378,10 @@ function App() {
     <>
       <div id="home-screen" className={`screen ${screen === 'home' ? 'active' : ''}`}>
         <div className="container">
-          <h1 className="logo">🎮 Quiz Game</h1>
+          <h1 className="logo">Gabriel & Chia Yin's Wedding Quiz Game</h1>
           <div className="button-group">
             <button className="btn btn-primary btn-large" onClick={showHostAuthScreen}>
-              🎯 Host Game
+              🌿 Host Game
             </button>
           </div>
         </div>
@@ -414,7 +414,7 @@ function App() {
 
       <div id="host-screen" className={`screen ${screen === 'host' ? 'active' : ''}`}>
         <div className="container">
-          <h2>Host Game</h2>
+          <h2>🌿 Host Game</h2>
           <div className="game-pin-display">
             <div className="pin-label">Scan to Join</div>
             <canvas ref={qrCanvasRef} className="qr-canvas" width="220" height="220"></canvas>
@@ -519,7 +519,7 @@ function App() {
 
       <div id="join-screen" className={`screen ${screen === 'join' ? 'active' : ''}`}>
         <div className="container">
-          <h2>Join Game</h2>
+          <h2>💍 Join Game</h2>
           <div className="input-group">
             <input
               type="text"
@@ -600,7 +600,11 @@ function App() {
                 id="result-text"
                 style={{ color: answerFeedback?.isCorrect ? '#38ef7d' : '#667eea' }}
               >
-                {phase === 'finished' ? 'Final Rankings' : answerFeedback?.isCorrect ? 'Correct!' : 'Leaderboard'}
+                {phase === 'finished'
+                  ? 'Final Rankings'
+                  : answerFeedback?.isCorrect
+                  ? 'Correct!'
+                  : 'Oops! You didn’t answer correctly'}
               </div>
               <div className="result-points" id="result-points">
                 {answerFeedback?.isCorrect
