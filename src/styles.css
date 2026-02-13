@@ -9,8 +9,7 @@
 
 body {
     font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #fffaf5 url('./assets/floral-frame.jpg') no-repeat center top;
-    background-size: contain;
+    background: #fffaf5;
     min-height: 100vh;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
