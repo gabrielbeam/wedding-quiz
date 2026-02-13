@@ -8,6 +8,7 @@ import {
   endGame,
   fetchGameState
 } from './api.js';
+import quizMusic from './assets/quiz-music.mp3';
 
 const ANSWER_COLORS = ['answer-option-1', 'answer-option-2', 'answer-option-3', 'answer-option-4'];
 const ANSWER_EMOJIS = ['A.', 'B.', 'C.', 'D.'];
@@ -44,6 +45,7 @@ function App() {
   const socketRef = useRef(null);
   const qrCanvasRef = useRef(null);
   const endGameRequestedRef = useRef(false);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -192,6 +194,29 @@ function App() {
       socket.off('answer-result', handleAnswerResult);
     };
   }, [playerNameInput, sessionToken]);
+
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(quizMusic);
+      audioRef.current.loop = true;
+      audioRef.current.volume = 0.5;
+    }
+
+    const shouldPlay = phase === 'question' && screen === 'hostGame';
+    if (shouldPlay) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+    } else {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, [phase, screen]);
 
   useEffect(() => {
     if (!socketRef.current) return;
